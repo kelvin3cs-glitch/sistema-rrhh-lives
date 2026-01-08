@@ -22,15 +22,17 @@ export default function CalendarioVacaciones() {
         .from('movimientos_vacaciones')
         .select(`
           id, fecha_inicio, fecha_fin, cantidad_dias, tipo,
-          empleados (nombres, apellidos)
-        `)
+          empleados!empleado_id (nombres, apellidos) 
+        `) 
+        // 👆 OJO AQUÍ: Agregamos "!empleado_id" para decirle a Supabase 
+        // explícitamente qué relación usar y evitar el error de ambigüedad.
+        
         .neq('estado', 'CANCELADO')
-        // Quitamos el filtro de 'tipo' temporalmente para asegurar que vemos todo
       
       if (error) {
         console.error("Error cargando calendario:", error)
       } else {
-        console.log("📅 Eventos cargados:", data) // <--- CHIVATO PARA DEBUG
+        console.log("📅 Eventos cargados:", data)
         setMovimientos(data)
       }
       
@@ -78,22 +80,16 @@ export default function CalendarioVacaciones() {
           const isCurrentMonth = isSameMonth(day, monthStart)
           const isToday = isSameDay(day, new Date())
           
-          // LÓGICA CORREGIDA DE INTERVALOS
           const eventosDelDia = movimientos.filter(mov => {
             if (!mov.fecha_inicio) return false;
 
-            // 1. Convertimos la fecha de inicio (String -> Date)
             const inicio = parseISO(mov.fecha_inicio)
-            
-            // 2. Calculamos el fin robustamente:
-            // Si hay fecha_fin en BD, úsala. Si no, suma los días a la fecha inicio.
-            // Restamos 1 día porque si pides 1 día (el 5), empieza y termina el 5.
+            // Calculamos fin: fecha_fin o (inicio + dias - 1)
             const diasDuracion = mov.cantidad_dias > 0 ? mov.cantidad_dias - 1 : 0;
             const fin = mov.fecha_fin 
               ? parseISO(mov.fecha_fin) 
               : addDays(inicio, diasDuracion);
 
-            // 3. Verificamos si "day" está dentro del rango [inicio, fin]
             return isWithinInterval(day, { start: inicio, end: fin })
           })
 
@@ -119,6 +115,7 @@ export default function CalendarioVacaciones() {
                     title={`${evento.empleados?.nombres} ${evento.empleados?.apellidos} (${evento.cantidad_dias} días)`}
                   >
                     <User size={10} />
+                    {/* Nota: Ahora accedemos a "empleados" correctamente gracias al fix en el select */}
                     {evento.empleados?.apellidos || 'Desconocido'}
                   </div>
                 ))}
